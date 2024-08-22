@@ -1,5 +1,136 @@
 # 更新日志（Changelog）
 
+## v1.3.6
+
+### 2024/8/22
+
+- 新增酒店源更新，支持 Tonkiang、FOFA 两种工作模式（Added hotel source updates, supporting Tonkiang and FOFA working modes）
+- 重构 UI 界面软件，新增帮助-关于、获取频道名称编辑、酒店源相关配置、软件图标（Refactored UI interface software, added Help-About, channel name editing, hotel source related configuration, and software icon）
+- 新增测速日志页面服务，结果链接后添加/log 即可查看（Added a new speed test log page service. To view the results, simply add /log to the link）
+- 移除关注频道相关配置（Removed configuration related to followed channels）
+- 修复 Docker 定时任务未执行问题（Fixed issue with Docker scheduled tasks not executing）
+- 修复使用历史结果时频道数据异常问题（Fixed issue with channel data anomalies when using historical results）
+- 优化 UI 界面软件运行生成配置目录，方便查看与修改（Optimized UI interface software to generate configuration directory for easier viewing and modification）
+
+## v1.3.5
+
+### 2024/8/14
+
+- 新增支持地区组播 ip 更新，调整默认以此模式运行，基本实现高清流畅播放（#225）（Added support for updating multicast IP for new regions and adjusted the default to run in this mode, basically achieving high-definition smooth playback (#225)）
+- 新增支持使用 FFmpeg 进行测速排序、获取分辨率信息，本地运行请手动安装 FFmpeg（Added support for speed sorting and resolution information using FFmpeg. Manually install FFmpeg when running locally）
+- 接口源增加分辨率信息，用于源切换时显示（Added resolution information to the interface source for display during source switching）
+- 调整配置文件与结果文件路径（config、output 目录），方便 docker 卷挂载（#226）（Adjusted the paths for configuration and result files (config, output directories) to facilitate Docker volume mounting (#226)）
+- 修改配置文件类型（config.ini）（Modified the configuration file type (config.ini)）
+
+## v1.3.4
+
+### 2024/7/31
+
+- 新增配置 open_use_old_result：保留使用历史更新结果，合并至本次更新中（Add configuration open_use_old_result: Keep using the previous update results and merge them into the current update）
+- 新增配置 open_keep_all：保留所有检索结果，推荐手动维护时开启（#121）（Add configuration open_keep_all: Keep all search results, recommend enabling it for manual maintenance (#121)）
+
+## v1.3.3
+
+### 2024/7/19
+
+- 支持 Docker 卷挂载目录映射（Support for Docker volume mount directory mapping）
+- 新增 requests 随机 User-Agent（Added random User-Agent for requests）
+- 修复读取用户配置问题（#208）（Fixed issue with reading user configuration (#208)）
+- 支持单日更新两次：6 点与 18 点（Supports updating twice a day: at 6 AM and 6 PM）
+
+## v1.3.2
+
+### 2024/7/10
+
+- 新增支持频道名称简体繁体匹配（Added support for channel name Simplified and Traditional Chinese match）
+- 新增 Docker 修改模板与配置教程（Added Docker modification template and configuration tutorial）
+- 修复频道更新结果为空问题（Fixed the issue where channel update result is empty）
+
+## v1.3.1
+
+### 2024/7/9
+
+- 重构代码，模块拆分，优化 CPU/内存占用（Refactor code, modular decomposition, optimize CPU/memory usage）
+- 新增两种工作模式：driver 模式、requests 模式，具体差异见文档说明（Add two new working modes: driver mode and requests mode, see documentation for specific differences）
+- 调整软件界面，功能分类摆放，增加配置：开启更新、开启浏览器模式、开启代理（Adjust the software interface, arrange features by category, add configurations: enable updates, enable browser mode, enable proxy）
+- 调整工作流更新时间为北京时间每日 6:00（Adjust workflow update time to 6:00 AM Beijing time daily）
+- Docker 镜像增加两种工作模式版本（Docker image adds two new working mode versions）
+
+## v1.3.0
+
+### 2024/7/1
+
+- 新增更新结果页面服务（ip:8000）（Add new update results page service (ip:8000)）
+- 新增支持 Docker 运行，并支持定时自动更新（Added support for Docker running and automatic updates）
+- 修复在线查询更新，增加随机代理、失败重试，提高获取结果成功率（Fixed online query update, added random proxy, increased failure retry, and improved the success rate of getting results）
+- 更换使用阿里云镜像源（Switched to use Alibaba Cloud mirror source）
+- 增加更新开关配置：open_update（Add update switch configuration: open_update）
+- 更新说明文档（Update documentation）
+
+## v1.2.4
+
+### 2024/6/21
+
+- 优化排序执行逻辑（Optimize the sorting execution logic）
+- 优化超时重试方法（Optimize the timeout retry method）
+- 调整默认配置 open_sort：关闭工作流测速排序，建议本地运行更准确（Adjust the default configuration open_sort: turn off the workflow speed test sorting, local execution is recommended for more accurate results）
+
+## v1.2.3
+
+### 2024/6/17
+
+- 新增请求重连重试功能（Added request reconnection retry function）
+- 修复个别系统环境文件路径报错问题（Fixed some system environment file path errors）
+
+## v1.2.2
+
+### 2024/6/16
+
+- 优化在线查询更新速度与修复无更新结果情况（Optimize online query update speed and fix no update result situation）
+- 解决个别环境运行更新报错（Solved the problem of running updates in some environments）
+
+## v1.2.1
+
+### 2024/6/15
+
+- 兼容 Win7 系统，请使用 Python 版本>=3.8（Compatible with Windows 7 system, please use Python version >= 3.8）
+- 修复部分设备运行更新报错（Fixed an error that occurred when some devices ran updates）
+- 修复工作流更新错误（Fixed an error in the workflow update）
+- 新增捐赠途径（主页底部），本项目完全免费，维护不易，若对您有帮助，可选择捐赠（Add new donation channels (bottom of the homepage), this project is completely free, maintenance is not easy, if it helps you, you can choose to donate）
+
+## v1.2.0
+
+### 2024/6/9
+
+- 异步并发、多线程支持，大幅提升更新速度（近 10 倍）（Asynchronous concurrency and multi-threading support, significantly increasing update speeds (nearly 10 times faster)）
+- 新增更新工具软件（release 附件:update-tool.exe），首个版本可能会有不可预见的问题，请见谅（Added new update tool software (release attachment: update-tool.exe); the first version may have unforeseen issues, please be understanding）
+
+## v1.1.6
+
+### 2024/5/17
+
+- 增加组播源可全地区运行更新（Added multicast sources to run region-wide updates）
+- 修改默认值：关闭在线检索功能，组播源全地区更新（Change the default value: Disable the online search function and update the multicast source in all regions）
+
+## v1.1.5
+
+### 2024/5/17
+
+- 增加模糊匹配规则，适配在线检索、订阅源、组播源（Add fuzzy matching rules for online search, subscription sources, and multicast sources）
+- 增加订阅源、组播源更新进度条（Added the update progress bar for subscription sources and multicast sources）
+- 优化组播源更新可能出现的无匹配结果情况（Optimize the possible situation of no match results in multicast source updates）
+- 移除部分错误日志打印（Removes some error log prints）
+- 移除严格匹配配置（Removes strict matching configurations）
+
+## v1.1.4
+
+### 2024/5/15
+
+- 新增组播源功能（Added multicast source feature）
+- 新增控制开关，控制多种获取模式的启用状态（Added control switch to manage the activation status of various acquisition modes）
+- 新增严格匹配（Added strict matching）
+- 优化文件读取，提升模板初始化速度（Optimized file reading to improve initialization speed based on templates）
+
 ## v1.1.3
 
 ### 2024/5/8

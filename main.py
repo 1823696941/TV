@@ -1,173 +1,244 @@
-try:
-    import user_config as config
-except ImportError:
-    import config
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium_stealth import stealth
 import asyncio
-from bs4 import BeautifulSoup
-from utils import (
-    getChannelItems,
-    updateChannelUrlsTxt,
-    updateFile,
-    getResultsFromSoup,
-    sortUrlsBySpeedAndResolution,
-    getTotalUrls,
-    filterUrlsByPatterns,
-    useAccessibleUrl,
-    getChannelsByExtendBaseUrls,
-    checkUrlByPatterns,
+from utils.config import config, copy_config
+from utils.channel import (
+    get_channel_items,
+    append_data_to_info_data,
+    append_total_data,
+    sort_channel_list,
+    write_channel_to_file,
 )
-import logging
-from logging.handlers import RotatingFileHandler
+from utils.tools import (
+    update_file,
+    get_pbar_remaining,
+    get_ip_address,
+)
+from utils.speed import is_ffmpeg_installed
+from updates.subscribe import get_channels_by_subscribe_urls
+from updates.multicast import get_channels_by_multicast
+from updates.hotel import get_channels_by_hotel
+from updates.fofa import get_channels_by_fofa
+from updates.online_search import get_channels_by_online_search
 import os
 from tqdm import tqdm
-import re
+from tqdm.asyncio import tqdm_asyncio
+from time import time
+from flask import Flask, render_template_string
+import sys
+import shutil
 
-handler = RotatingFileHandler("result_new.log", encoding="utf-8")
-logging.basicConfig(
-    handlers=[handler],
-    format="%(message)s",
-    level=logging.INFO,
-)
+app = Flask(__name__)
+
+
+@app.route("/")
+def show_result():
+    user_final_file = config.get("Settings", "final_file")
+    with open(user_final_file, "r", encoding="utf-8") as file:
+        content = file.read()
+    return render_template_string(
+        "<head><link rel='icon' href='{{ url_for('static', filename='images/favicon.ico') }}' type='image/x-icon'></head><pre>{{ content }}</pre>",
+        content=content,
+    )
+
+
+@app.route("/log")
+def show_log():
+    user_log_file = "output/" + (
+        "user_result.log" if os.path.exists("config/user_config.ini") else "result.log"
+    )
+    with open(user_log_file, "r", encoding="utf-8") as file:
+        content = file.read()
+    return render_template_string(
+        "<head><link rel='icon' href='{{ url_for('static', filename='images/favicon.ico') }}' type='image/x-icon'></head><pre>{{ content }}</pre>",
+        content=content,
+    )
 
 
 class UpdateSource:
 
-    def setup_driver(self):
-        options = webdriver.ChromeOptions()
-        options.add_argument("start-maximized")
-        options.add_argument("--headless")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
-        options.add_argument("blink-settings=imagesEnabled=false")
-        options.add_argument("--log-level=3")
-        driver = webdriver.Chrome(options=options)
-        stealth(
-            driver,
-            languages=["en-US", "en"],
-            vendor="Google Inc.",
-            platform="Win32",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-        )
-        return driver
-
     def __init__(self):
-        self.driver = self.setup_driver()
+        self.run_ui = False
+        self.tasks = []
+        self.channel_items = {}
+        self.subscribe_result = {}
+        self.multicast_result = {}
+        self.hotel_tonkiang_result = {}
+        self.hotel_fofa_result = {}
+        self.online_search_result = {}
+        self.channel_data = {}
+        self.pbar = None
+        self.total = 0
+        self.start_time = None
+        self.sort_n = 0
 
-    async def visitPage(self, channelItems):
-        channelNames = [
-            name for _, channelObj in channelItems.items() for name in channelObj.keys()
+    async def visit_page(self, channel_names=None):
+        tasks_config = [
+            ("open_subscribe", get_channels_by_subscribe_urls, "subscribe_result"),
+            ("open_multicast", get_channels_by_multicast, "multicast_result"),
+            ("open_hotel_tonkiang", get_channels_by_hotel, "hotel_tonkiang_result"),
+            ("open_hotel_fofa", get_channels_by_fofa, "hotel_fofa_result"),
+            (
+                "open_online_search",
+                get_channels_by_online_search,
+                "online_search_result",
+            ),
         ]
-        extendResults = await getChannelsByExtendBaseUrls(channelNames)
-        total_channels = len(channelNames)
-        pbar = tqdm(total=total_channels)
-        pageUrl = await useAccessibleUrl()
-        wait = WebDriverWait(self.driver, 10)
-        for cate, channelObj in channelItems.items():
-            channelUrls = {}
-            channelObjKeys = channelObj.keys()
-            for name in channelObjKeys:
-                pbar.set_description(
-                    f"Processing {name}, {total_channels - pbar.n} channels remaining"
+
+        for setting, task_func, result_attr in tasks_config:
+            if (
+                setting == "open_hotel_tonkiang" or setting == "open_hotel_fofa"
+            ) and config.getboolean("Settings", "open_hotel") == False:
+                continue
+            if config.getboolean("Settings", setting):
+                task = asyncio.create_task(
+                    task_func(channel_names, self.update_progress)
                 )
-                infoList = []
-                for url, date, resolution in extendResults.get(name, []):
-                    if url and checkUrlByPatterns(url):
-                        infoList.append((url, None, resolution))
-                if pageUrl:
-                    self.driver.get(pageUrl)
-                    search_box = wait.until(
-                        EC.presence_of_element_located(
-                            (By.XPATH, '//input[@type="text"]')
-                        )
-                    )
-                    search_box.clear()
-                    search_box.send_keys(name)
-                    submit_button = wait.until(
-                        EC.element_to_be_clickable(
-                            (By.XPATH, '//input[@type="submit"]')
-                        )
-                    )
-                    self.driver.execute_script("arguments[0].click();", submit_button)
-                    isFavorite = name in config.favorite_list
-                    pageNum = (
-                        config.favorite_page_num
-                        if isFavorite
-                        else config.default_page_num
-                    )
-                    for page in range(1, pageNum + 1):
-                        try:
-                            if page > 1:
-                                page_link = wait.until(
-                                    EC.element_to_be_clickable(
-                                        (
-                                            By.XPATH,
-                                            f'//a[contains(@href, "={page}") and contains(@href, "{name}")]',
-                                        )
-                                    )
-                                )
-                                self.driver.execute_script(
-                                    "arguments[0].click();", page_link
-                                )
-                            source = re.sub(
-                                r"<!--.*?-->",
-                                "",
-                                self.driver.page_source,
-                                flags=re.DOTALL,
-                            )
-                            soup = BeautifulSoup(source, "html.parser")
-                            if soup:
-                                results = getResultsFromSoup(soup, name)
-                                for result in results:
-                                    url, date, resolution = result
-                                    if url and checkUrlByPatterns(url):
-                                        infoList.append((url, date, resolution))
-                        except Exception as e:
-                            print(f"Error on page {page}: {e}")
-                            continue
-                try:
-                    github_actions = os.environ.get("GITHUB_ACTIONS")
-                    if not github_actions or (
-                        pbar.n <= 200 and github_actions == "true"
-                    ):
-                        sorted_data = await sortUrlsBySpeedAndResolution(infoList)
-                        if sorted_data:
-                            channelUrls[name] = getTotalUrls(sorted_data)
-                            for (url, date, resolution), response_time in sorted_data:
-                                logging.info(
-                                    f"Name: {name}, URL: {url}, Date: {date}, Resolution: {resolution}, Response Time: {response_time}ms"
-                                )
-                        else:
-                            channelUrls[name] = filterUrlsByPatterns(channelObj[name])
-                    else:
-                        channelUrls[name] = filterUrlsByPatterns(channelObj[name])
-                except Exception as e:
-                    print(f"Error on sorting: {e}")
-                    continue
-                finally:
-                    pbar.update()
-            updateChannelUrlsTxt(cate, channelUrls)
-            await asyncio.sleep(1)
-        pbar.close()
+                self.tasks.append(task)
+                setattr(self, result_attr, await task)
 
-    def main(self):
-        asyncio.run(self.visitPage(getChannelItems()))
-        for handler in logging.root.handlers[:]:
-            handler.close()
-            logging.root.removeHandler(handler)
-        user_final_file = getattr(config, "final_file", "result.txt")
-        user_log_file = (
-            "user_result.log" if os.path.exists("user_config.py") else "result.log"
+    def pbar_update(self, name="", n=0):
+        if not n:
+            self.pbar.update()
+        self.update_progress(
+            f"正在进行{name}, 剩余{self.total - (n or self.pbar.n)}个频道, 预计剩余时间: {get_pbar_remaining(n=(n or self.pbar.n), total=self.total, start_time=self.start_time)}",
+            int(((n or self.pbar.n) / self.total) * 100),
         )
-        updateFile(user_final_file, "result_new.txt")
-        updateFile(user_log_file, "result_new.log")
-        print(f"Update completed! Please check the {user_final_file} file!")
+
+    def sort_pbar_update(self):
+        self.sort_n += 1
+        self.pbar_update(name="测速", n=self.sort_n)
+
+    async def main(self):
+        try:
+            self.channel_items = get_channel_items()
+            if self.run_ui:
+                copy_config()
+            channel_names = [
+                name
+                for channel_obj in self.channel_items.values()
+                for name in channel_obj.keys()
+            ]
+            self.total = len(channel_names)
+            await self.visit_page(channel_names)
+            self.tasks = []
+            self.channel_data = append_total_data(
+                self.channel_items.items(),
+                self.channel_data,
+                self.subscribe_result,
+                self.multicast_result,
+                self.hotel_tonkiang_result,
+                self.hotel_fofa_result,
+                self.online_search_result,
+            )
+            if config.getboolean("Settings", "open_sort"):
+                is_ffmpeg = is_ffmpeg_installed()
+                if not is_ffmpeg:
+                    print("FFmpeg is not installed, using requests for sorting.")
+                semaphore = asyncio.Semaphore(1 if is_ffmpeg else 100)
+                self.tasks = [
+                    asyncio.create_task(
+                        sort_channel_list(
+                            semaphore,
+                            cate,
+                            name,
+                            info_list,
+                            is_ffmpeg,
+                            lambda: self.sort_pbar_update(),
+                        )
+                    )
+                    for cate, channel_obj in self.channel_data.items()
+                    for name, info_list in channel_obj.items()
+                ]
+                self.update_progress(
+                    f"正在测速排序, 共{len(self.tasks)}个频道",
+                    0,
+                )
+                self.start_time = time()
+                self.pbar = tqdm_asyncio(total=len(self.tasks), desc="Sorting")
+                sort_results = await tqdm_asyncio.gather(*self.tasks, desc="Sorting")
+                self.channel_data = {}
+                for result in sort_results:
+                    if result:
+                        cate = result.get("cate")
+                        name = result.get("name")
+                        data = result.get("data")
+                        self.channel_data = append_data_to_info_data(
+                            self.channel_data, cate, name, data, False
+                        )
+            self.pbar = tqdm(total=self.total, desc="Writing")
+            self.start_time = time()
+            write_channel_to_file(
+                self.channel_items.items(),
+                self.channel_data,
+                lambda: self.pbar_update(name="写入结果"),
+            )
+            self.pbar.close()
+            user_final_file = config.get("Settings", "final_file")
+            update_file(user_final_file, "output/result_new.txt")
+            if os.path.exists(user_final_file):
+                result_file = (
+                    "user_result.txt"
+                    if os.path.exists("config/user_config.ini")
+                    else "result.txt"
+                )
+                shutil.copy(user_final_file, result_file)
+            if config.getboolean("Settings", "open_sort"):
+                user_log_file = "output/" + (
+                    "user_result.log"
+                    if os.path.exists("config/user_config.ini")
+                    else "result.log"
+                )
+                update_file(user_log_file, "output/result_new.log")
+            print(f"Update completed! Please check the {user_final_file} file!")
+            if self.run_ui:
+                self.update_progress(
+                    f"更新完成, 请检查{user_final_file}文件, 可访问以下链接:",
+                    100,
+                    True,
+                    url=f"{get_ip_address()}",
+                )
+        except asyncio.exceptions.CancelledError:
+            print("Update cancelled!")
+
+    async def start(self, callback=None):
+        def default_callback(self, *args, **kwargs):
+            pass
+
+        self.update_progress = callback or default_callback
+        self.run_ui = True if callback else False
+        if config.getboolean("Settings", "open_update"):
+            await self.main()
+        if self.run_ui and config.getboolean("Settings", "open_update") == False:
+            self.update_progress(
+                f"服务启动成功, 可访问以下链接:",
+                100,
+                True,
+                url=f"{get_ip_address()}",
+            )
+            run_app()
+
+    def stop(self):
+        for task in self.tasks:
+            task.cancel()
+        self.tasks = []
+        if self.pbar:
+            self.pbar.close()
 
 
-UpdateSource().main()
+def scheduled_task():
+    if config.getboolean("Settings", "open_update"):
+        update_source = UpdateSource()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(update_source.start())
+
+
+def run_app():
+    if not os.environ.get("GITHUB_ACTIONS"):
+        print(f"You can access the result at {get_ip_address()}")
+        app.run(host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1] == "scheduled_task"):
+        scheduled_task()
+    run_app()
