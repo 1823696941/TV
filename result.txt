@@ -1,10 +1,8 @@
 广东频道,#genre#
 广东珠江,https://skype.serv00.net/itouch.php?id=gdzj$1920x1080
 广东体育,https://skype.serv00.net/itouch.php?id=gdty$1920x1080
-广东体育,http://113.81.20.157:10443/tsfile/live/1003_1.m3u8?key=txiptv&playlive=1&authid=0$1920x1080
 广东新闻,https://skype.serv00.net/itouch.php?id=gdxw$1920x1080
 广东卫视,http://106.111.244.151:5001/tsfile/live/0001_12.m3u8?key=txiptv&playlive=1&authid=0$1920x1080
-广东卫视,http://113.81.20.157:10443/tsfile/live/0125_1.m3u8?key=txiptv&playlive=1&authid=0$1920x1080
 大湾区卫视,https://skype.serv00.net/itouch.php?id=nfws$1920x1080
 新会综合,https://skype.serv00.net/itouch.php?id=xhzh$1920x1080
 鹤山综合,https://skype.serv00.net/itouch.php?id=hszh$1920x1080
